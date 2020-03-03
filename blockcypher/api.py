@@ -1316,8 +1316,10 @@ def create_unsigned_tx(inputs, outputs, change_address=None,
     - {'address': '1abcxyz...'} that will be included in the TX
     - {'pubkeys' : [pubkey1, pubkey2, pubkey3], "script_type": "multisig-2-of-3"}
     - {'wallet_name': 'bar', 'wallet_token': 'yourtoken'} that was previously registered and will be used
-    - {'prev_hash': '01234567...', 'output_index': 0}
-      to choose which addresses/inputs are included in the TX
+    -{'prev_hash': '01234567...', 'output_index': 0}
+    to choose which addresses/inputs are included in the TX
+    - {'prev_hash': '01234567...', 'output_index': 0,'pubkeys' : [pubkey1, pubkey2, pubkey3], "script_type": "multisig-2-of-3"} 
+      to choose which addresses/inputs are included in the TX for a multi-sig address
 
     Note that for consistency with the API `inputs` is always a list.
     Currently, it is a singleton list, but it is possible it could have more elements in future versions.
@@ -1354,6 +1356,21 @@ def create_unsigned_tx(inputs, outputs, change_address=None,
         elif 'wallet_name' in input_obj and 'wallet_token' in input_obj:
             # good behavior
             inputs_cleaned.append(input_obj)
+        elif set(input_obj.keys()) == set(['prev_hash', 'output_index','script_type','pubkeys']):
+            prev_hash = input_obj['prev_hash']
+            output_index = int(input_obj['output_index'])
+            assert output_index >= 0, output_index
+            assert is_valid_hash(prev_hash), prev_hash
+            for pubkey in input_obj['pubkeys']:
+                # TODO: better pubkey test
+                assert uses_only_hash_chars(pubkey), pubkey
+            inputs_cleaned.append({
+                'prev_hash': prev_hash,
+                'output_index': output_index,
+                'addresses': input_obj['pubkeys'],
+                'script_type': input_obj['script_type'],
+                
+            })
         elif set(input_obj.keys()) == set(['prev_hash', 'output_index']):
             prev_hash = input_obj['prev_hash']
             output_index = int(input_obj['output_index'])
@@ -1361,8 +1378,9 @@ def create_unsigned_tx(inputs, outputs, change_address=None,
             assert is_valid_hash(prev_hash), prev_hash
             inputs_cleaned.append({
                 'prev_hash': prev_hash,
-                'output_index': output_index,
+                'output_index': output_index,             
             })
+            
         else:
             raise Exception('Invalid Input: %s' % input_obj)
 
